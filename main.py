@@ -106,16 +106,6 @@ def normalize_answer(ans):
         return num
     return s
 
-image_history = []   # every Q2 call this session: question, raw model output, final answer
-
-@app.get("/image-debug")
-def get_image_debug():
-    """Full history of EVERY /answer-image call this session — question, the model's
-    raw 'work'+'answer', and what we actually returned. Open
-    https://<your>.hf.space/image-debug in a browser after clicking Check on Q2.
-    Newest first."""
-    return {"count": len(image_history), "calls": list(reversed(image_history))}
-
 @app.post("/answer-image")
 async def answer_image(request: Request):
     body = await request.json()
@@ -144,24 +134,12 @@ async def answer_image(request: Request):
              "image_url": {"url": f"data:image/png;base64,{img_b64}", "detail": "high"}},
         ],
     }]
-    raw_out, error, ans = None, None, ""
     try:
         # Full gpt-4o at high image detail reads small chart/receipt labels accurately.
-        raw_out = parse_json(await chat(messages, model=config.VISION_MODEL, max_tokens=1200))
-        ans = normalize_answer(raw_out.get("answer", ""))
+        out = parse_json(await chat(messages, model=config.VISION_MODEL, max_tokens=1200))
+        ans = normalize_answer(out.get("answer", ""))
     except Exception as e:
-        error = f"{type(e).__name__}: {e}"
         ans = ""
-
-    image_history.append({
-        "question": question,
-        "raw_model_output": raw_out,
-        "normalized_answer": ans,
-        "error": error,
-    })
-    if len(image_history) > 50:
-        del image_history[0]
-
     return {"answer": str(ans)}
 # ================= Q3 + Q7: /extract =================
 @app.post("/extract")
